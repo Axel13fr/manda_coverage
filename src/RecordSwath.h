@@ -10,16 +10,13 @@
 #ifndef SurveyPath_RecordSwath_HEADER
 #define SurveyPath_RecordSwath_HEADER
 
-//MOOS Headers
-#include "XYPoint.h"
-#include "XYSegList.h"
-#include "XYVector.h"
-
+#include <Eigen/Core>
 #include <list>
 #include <vector>
 #include <map>
 
-//#include "PathPlan.h"
+using EPoint = Eigen::Vector2d;
+using EPointVec = std::vector<EPoint>;
 
 /**
  * @enum BoatSide
@@ -87,9 +84,9 @@ public:
   * @param side   The side of the boat on which to return the swath
   * @return       An ordered list of the points on the outside of the swath
   */
-  XYSegList SwathOuterPts(BoatSide side);
+  EPointVec SwathOuterPts(BoatSide side);
 
-  std::pair<XYPoint, XYPoint> LastOuterPoints();
+  std::pair<EPoint, EPoint> LastOuterPoints();
 
   /**
   * Gets a specific width along a recorded decimated swath
@@ -109,9 +106,9 @@ public:
   /**
    * Gets the x,y location of where a specific min swath was recorded
    * @param  index The index along the swath record
-   * @return       XYPoint of recording location
+   * @return       EPoint of recording location
    */
-  XYPoint SwathLocation(unsigned int index);
+  EPoint SwathLocation(unsigned int index);
 
   /**
   * Sets the side that will be used for outer point determination
@@ -147,7 +144,7 @@ public:
   * @param  side   The side of the boat on which to project the swath
   * @return        Location of the swath outer points
   */
-  XYPoint OuterPoint(const SwathRecord &record, BoatSide side);
+  EPoint OuterPoint(const SwathRecord &record, BoatSide side);
 
   /**
   * Adds a record to the coverage model.

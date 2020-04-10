@@ -7,22 +7,20 @@
  */
 
 #include "PathPlan.h"
-//#include "MOOS/libMOOS/MOOSLib.h"
 #include <Eigen/Geometry>
 #include <cmath>
-// #include <stdexcept>
 #include <iterator>
+#include <iostream>
 
 namespace bg = boost::geometry;
 
 #define DEBUG true
 
 PathPlan::PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_region,
-  double margin, double max_bend_angle, bool restrict_to_region) : m_last_line(last_swath),
-  m_max_bend_angle(max_bend_angle), m_restrict_asv_to_region(restrict_to_region),
-  m_planning_side(side), m_margin(margin), m_op_region{op_region} {
+  double margin, double max_bend_angle, bool restrict_to_region) :
+  m_restrict_asv_to_region(restrict_to_region), m_max_bend_angle(max_bend_angle),
+  m_margin(margin), m_op_region{op_region},m_last_line(last_swath), m_planning_side(side) {
 
-  //m_op_region = XYPolygonToBoostPolygon(op_region);
   //1 is half stepping, we don't really need to go larger
   if (m_margin > 1) {
     m_margin = 1;
@@ -30,14 +28,12 @@ PathPlan::PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_reg
 
 }
 
-//void PathPlan::SetBasisPath(RecordSwath)
-
-XYSegList PathPlan::GenerateNextPath() {
+PathList PathPlan::GenerateNextPath() {
   #if DEBUG
   //MOOSTrace("\n======== Generating Next Path ========\n");
   #endif
 
-  XYSegList edge_pts = m_last_line.SwathOuterPts(m_planning_side);
+  std::vector<EPoint> edge_pts = m_last_line.SwathOuterPts(m_planning_side);
 
   #if DEBUG
   //MOOSTrace("Basis Points: %d\n", edge_pts.size());
@@ -45,7 +41,7 @@ XYSegList PathPlan::GenerateNextPath() {
   #endif
 
   if (edge_pts.size() < 2)
-    return XYSegList();
+    return PathList();
 
   bool all_zero = true;
   double swath_width = 0;
@@ -58,18 +54,18 @@ XYSegList PathPlan::GenerateNextPath() {
   }
   Eigen::Rotation2D<double> rot_matrix(rot_angle);
 
-  for(unsigned int i = 0; i < edge_pts.size(); i++) {
+  for(size_t i = 0; i < edge_pts.size(); i++) {
     Eigen::Vector2d back_vec;
     Eigen::Vector2d forward_vec;
     bool back_vec_set = false;
     if (i > 0) {
-      back_vec =  Eigen::Vector2d(edge_pts.get_vx(i) - edge_pts.get_vx(i-1),
-          edge_pts.get_vy(i) - edge_pts.get_vy(i-1));
+      back_vec =  EPoint(edge_pts[i][X] - edge_pts[i-1][X],
+                         edge_pts[i][Y] - edge_pts[i-1][Y]);
       back_vec_set = true;
     }
     if (i < edge_pts.size() - 1) {
-      forward_vec = Eigen::Vector2d(edge_pts.get_vx(i + 1) - edge_pts.get_vx(i),
-          edge_pts.get_vy(i + 1) - edge_pts.get_vy(i));
+      forward_vec = EPoint(edge_pts[i+1][X] - edge_pts[i][X],
+          edge_pts[i+1][Y] - edge_pts[i][Y]);
     } else {
       forward_vec = back_vec;
     }
@@ -91,7 +87,7 @@ XYSegList PathPlan::GenerateNextPath() {
       offset_vec *= swath_width * (1 - m_margin);
 
       // Get offset location and save
-      Eigen::Vector2d swath_loc(edge_pts.get_vx(i), edge_pts.get_vy(i));
+      Eigen::Vector2d swath_loc(edge_pts[i][X], edge_pts[i][Y]);
       m_next_path_pts.push_back(swath_loc + offset_vec);
 
       #if DEBUG
@@ -111,15 +107,15 @@ XYSegList PathPlan::GenerateNextPath() {
     #if DEBUG
     //MOOSTrace("Reached end of path by depth threshold\n");
     #endif
-    return XYSegList();
+    return PathList();
   }
 
   // Next line is in opposite direction
   m_next_path_pts.reverse();
-  m_raw_path = VectorListToSegList(m_next_path_pts);
+  m_raw_path = m_next_path_pts;
 
   // ---------- Intersections -----------
-  unsigned int pre_len = m_next_path_pts.size();
+  size_t pre_len = m_next_path_pts.size();
   #if DEBUG
     //MOOSTrace("Eliminating path intersects itself.\n");
   #endif
@@ -132,7 +128,7 @@ XYSegList PathPlan::GenerateNextPath() {
   // ---------- Bends -----------
   #if DEBUG
   //MOOSTrace("Eliminating sharp bends.\n");
-  XYSegList pts = VectorListToSegList(m_next_path_pts);
+  //XYSegList pts = VectorListToSegList(m_next_path_pts);
   //MOOSTrace(pts.get_spec_pts(2) + "\n");
   #endif
 
@@ -164,7 +160,7 @@ XYSegList PathPlan::GenerateNextPath() {
     #endif
 
     if (pre_len <= 1) {
-      return VectorListToSegList(m_next_path_pts);
+      return m_next_path_pts;
     }
   }
 
@@ -185,14 +181,12 @@ XYSegList PathPlan::GenerateNextPath() {
   pre_len = m_next_path_pts.size();
   #endif
 
-  return VectorListToSegList(m_next_path_pts);
+  return m_next_path_pts;
 }
 
-// void PathPlan::RemoveAll(void (&process)(std::list<Eigen::Vector2d>&),
-//   std::list<Eigen::Vector2d> &path_points) {
 void PathPlan::RemoveAll(std::function<void(std::list<Eigen::Vector2d>&)> process,
-std::list<Eigen::Vector2d> &path_points) {
-  unsigned int pre_len = path_points.size();
+                         PathList &path_points) {
+  size_t pre_len = path_points.size();
   process(path_points);
   // keep repeating until no more changes
   while (path_points.size() < pre_len) {
@@ -215,8 +209,6 @@ void PathPlan::RemoveIntersects(std::list<EPoint> &path_pts) {
   auto back_2  = std::next(back_3);
   // This is the actual end of the list
   auto last_test_seg = std::next(back_2);
-  //auto std::prev(path_pts.end()
-  unsigned int i = 0;
 
   // The < operator doesn't work with non-random-access iterators
   while (path_iter != last_test_seg &&
@@ -361,7 +353,7 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
       }
 
       // -- Method 3: Remove in Both Directions [Maybe Most preferable?] --
-      std:size_t pts_elim3 = std::max(pts_elim1, pts_elim2) + 1;
+      size_t pts_elim3 = std::max(pts_elim1, pts_elim2) + 1;
       double fwd_angle = 500;
       double back_angle = 500;
       SegIndex test_fwd = next_seg;
@@ -631,9 +623,7 @@ std::pair<bool, bool> PathPlan::ClipToRegion(std::list<EPoint> &path_pts) {
     return std::make_pair(false, false);
   }
 
-  BPoint last_outside, last_inside;
   std::list<EPoint>::iterator start_erase, end_erase, insert_loc;
-  bool found_crossing = false;
   int clip_mode = 0;    // 1 = out to in, 2 = in to out
   int count_in = 0;
 
@@ -865,42 +855,6 @@ EPoint PathPlan::VectorFromSegment(const std::vector<EPoint>& points, SegIndex s
     vector = EPoint(NAN, NAN);
   }
   return vector;
-}
-
-std::list<XYPt> PathPlan::SegListToXYPt(const XYSegList &to_convert) {
-  std::list<XYPt> converted;
-  for (unsigned int i = 0; i < to_convert.size(); i++) {
-    converted.emplace_back(XYPt{to_convert.get_vx(i), to_convert.get_vy(i)});
-  }
-  return converted;
-}
-
-XYSegList PathPlan::XYPtToSegList(const std::list<XYPt> &to_convert) {
-  XYSegList converted;
-  // std::list<XYPt>::iterator i;
-  for (const XYPt &i : to_convert) {
-    converted.add_vertex(i.x, i.y);
-  }
-  return converted;
-}
-
-XYSegList PathPlan::VectorListToSegList(const std::list<EPoint> &to_convert) {
-  XYSegList converted;
-  for (const Eigen::Vector2d &i : to_convert) {
-    converted.add_vertex(i.x(), i.y());
-  }
-  return converted;
-}
-
-BPolygon PathPlan::XYPolygonToBoostPolygon(XYPolygon& poly) {
-  BPolygon output_poly;
-  XYSegList poly_pts = poly.exportSegList();
-  for (std::size_t i = 0; i < poly_pts.size(); i++) {
-    bg::append(output_poly.outer(), BPoint(poly_pts.get_vx(i),
-               poly_pts.get_vy(i)));
-  }
-
-  return output_poly;
 }
 
 // Eigen::Vector2d PathPlan::UnitVector(Eigen::Vector2d vector_in) {

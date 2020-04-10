@@ -11,8 +11,6 @@
 #define SurveyPath_PathPlan_HEADER
 
 #include "RecordSwath.h"
-#include "XYSegList.h"
-#include "XYPolygon.h"
 #include <Eigen/Core>
 #include <list>
 #include <functional>
@@ -22,23 +20,20 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 
 // To get a single point EPointList.col(i)
-typedef Eigen::Matrix<double, 2, Eigen::Dynamic> EPointList;
-typedef Eigen::Vector2d EPoint;
-typedef std::valarray<std::size_t> SegIndex;
-typedef std::list<EPoint> PathList;
-typedef boost::geometry::model::d2::point_xy<double> BPoint;
-typedef boost::geometry::model::polygon<BPoint> BPolygon;
-typedef boost::geometry::model::linestring<BPoint> BLinestring;
-typedef boost::geometry::model::ring<BPoint> BRing;
+using EPointList = Eigen::Matrix<double, 2, Eigen::Dynamic>;
 
-/**
- * @struct XYPt
- * @brief Defines a simple point, for better memory use in lists
- */
-struct XYPt {
-  double x;
-  double y;
+enum EPoint_E{
+    X = 0,
+    Y
 };
+using EPoint = Eigen::Vector2d;
+using PathList = std::list<EPoint>;
+
+using SegIndex = std::valarray<std::size_t>;
+using BPoint = boost::geometry::model::d2::point_xy<double>;
+using BPolygon = boost::geometry::model::polygon<BPoint>;
+using BLinestring = boost::geometry::model::linestring<BPoint>;
+using BRing = boost::geometry::model::ring<BPoint> ;
 
 /**
  * @class PathPlan
@@ -49,12 +44,12 @@ class PathPlan
   public:
     PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_region,
       double margin=0.2, double max_bend_angle=60, bool restrict_to_region = true);
-    ~PathPlan() {};
+    ~PathPlan() {}
     /**
      * Generates an offset path
-     * @return The path in MOOS XYSegList format;
+     * @return The path as a list of Eigen 2d vectors
      */
-    XYSegList GenerateNextPath();
+    PathList GenerateNextPath();
 
   public:
     /**
@@ -64,8 +59,8 @@ class PathPlan
      *         Currently does not make a copy of the passed input, may want to
      *         reconsider this
      */
-    void RemoveAll(std::function<void(std::list<Eigen::Vector2d>&)> process,
-      std::list<Eigen::Vector2d> &path_points);
+    void RemoveAll(std::function<void(PathList&)> process,
+      PathList &path_points);
 
     /**
      * Removes intersecting segments from a line.
@@ -181,24 +176,7 @@ class PathPlan
     EPoint VectorFromSegment(const std::vector<EPoint>& points,
       SegIndex segment);
 
-    /**
-     * Converts an XYSeglist to a std::list of simple points (XYPt).
-     */
-    std::list<XYPt> SegListToXYPt(const XYSegList &to_convert);
-
-    /**
-     * Converts a std::list of simple points (XYPt) to a MOOS XYSegList.
-     */
-    XYSegList XYPtToSegList(const std::list<XYPt> &to_convert);
-
-    /**
-     * Converts a std::list of Eigen points (vectors) to a MOOS XYSegList.
-     */
-    XYSegList VectorListToSegList(const std::list<Eigen::Vector2d> &to_convert);
-
-    BPolygon XYPolygonToBoostPolygon(XYPolygon& poly);
-
-    XYSegList GetRawPath() { return m_raw_path; }
+    PathList GetRawPath() { return m_raw_path; }
 
     /**
      * @brief Selects specific elements from a list by index.
@@ -241,14 +219,12 @@ class PathPlan
     double m_max_bend_angle;
     double m_margin;
     BPolygon m_op_region;
-    //XYPolygon m_op_region_moos;
 
     // State variables
     RecordSwath m_last_line;
     BoatSide m_planning_side;
-    // PointList m_next_path_pts;
     std::list<Eigen::Vector2d> m_next_path_pts;
-    XYSegList m_raw_path;
+    PathList m_raw_path;
 };
 
 #endif

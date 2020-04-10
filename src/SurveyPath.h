@@ -20,10 +20,10 @@
 #include <actionlib/client/simple_action_client.h>
 #include <path_follower/path_followerAction.h>
 #include <thread>
-//#include "XYPoint.h"
 #include "RecordSwath.h"
 #include "PathPlan.h"
 #include "project11_transformations/local_services.h"
+#include "GeomUtils.h"
 
 
 class SurveyPath
@@ -31,6 +31,8 @@ class SurveyPath
 public:
     SurveyPath();
     ~SurveyPath() {};
+
+    static XYSegList VectorListToSegList(const std::list<EPoint> &to_convert);
 
 protected:
     void Iterate();
@@ -90,7 +92,6 @@ private: // State variables
     
     double m_desired_speed;
     bool m_autonomous_state;
-
 };
 
 #endif

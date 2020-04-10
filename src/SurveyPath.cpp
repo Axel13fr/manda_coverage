@@ -58,6 +58,14 @@ SurveyPath::SurveyPath() : m_first_swath_side{BoatSide::Stbd},
     ros::spin();
 }
 
+XYSegList SurveyPath::VectorListToSegList(const std::list<EPoint> &to_convert) {
+    XYSegList converted;
+    for (const Eigen::Vector2d &i : to_convert) {
+        converted.add_vertex(i.x(), i.y());
+    }
+    return converted;
+}
+
 void SurveyPath::pingCallback(const sensor_msgs::PointCloud::ConstPtr& inmsg)
 {
     float miny, maxy;
@@ -102,7 +110,7 @@ void SurveyPath::Iterate()
         m_swath_record.AddRecord(m_swath_info["stbd"], m_swath_info["port"],
                                  m_swath_info["x"], m_swath_info["y"], m_swath_info["hdg"],
                                  m_swath_info["depth"]);
-        XYSegList points = m_swath_record.SwathOuterPts(m_swath_side);
+        EPointVec points = m_swath_record.SwathOuterPts(m_swath_side);
         geographic_visualization_msgs::GeoVizItem vizItem;
         vizItem.id = "manda_coverage_swath";
         if(points.size() > 0)
@@ -115,19 +123,19 @@ void SurveyPath::Iterate()
 
             geographic_visualization_msgs::GeoVizPointList plist;
             plist.size = 2;
-            for(int i = 0; i < points.size(); i++)
+            for(size_t i = 0; i < points.size(); i++)
             {
                 geometry_msgs::Point p;
-                p.x = points.get_vx(i);
-                p.y = points.get_vy(i);
+                p.x = points[i][X];
+                p.y = points[i][Y];
                 
                 geographic_msgs::GeoPoint gp = m_transformations.map_to_wgs84(p);
                 plist.points.push_back(gp);
             }
-            plist.color.r = .3;
-            plist.color.g = .4;
-            plist.color.b = .5;
-            plist.color.a = .5;
+            plist.color.r = .3f;
+            plist.color.g = .4f;
+            plist.color.b = .5f;
+            plist.color.a = .5f;
             vizItem.lines.push_back(plist);
         }
         m_display_pub.publish(vizItem);
@@ -153,9 +161,9 @@ void SurveyPath::Iterate()
 
 bool SurveyPath::SwathOutsideRegion() 
 {
-    std::pair<XYPoint, XYPoint> swath_edges = m_swath_record.LastOuterPoints();
-    BPoint port_edge(swath_edges.first.x(), swath_edges.first.y());
-    BPoint stbd_edge(swath_edges.second.x(), swath_edges.second.y());
+    std::pair<EPoint, EPoint> swath_edges = m_swath_record.LastOuterPoints();
+    BPoint port_edge(swath_edges.first[X], swath_edges.first[Y]);
+    BPoint stbd_edge(swath_edges.second[X], swath_edges.second[Y]);
 
     auto outer_ring = m_op_region.outer();
     bool outside_region = !boost::geometry::within(port_edge, outer_ring);
@@ -232,7 +240,7 @@ void SurveyPath::CreateNewPath()
         // Build full coverage model at some point? Or do this in PathPlan...
         PathPlan planner = PathPlan(m_swath_record, m_swath_side, m_op_region,
                                     m_swath_overlap, m_max_bend_angle, true);
-        m_survey_path = planner.GenerateNextPath();
+        m_survey_path = VectorListToSegList(planner.GenerateNextPath());
         if (m_survey_path.size() > 2) 
         {
             m_posted_path_str = m_survey_path.get_spec_pts(2);  //2 decimal precision
@@ -244,7 +252,7 @@ void SurveyPath::CreateNewPath()
         m_swath_side = AdvanceSide(m_swath_side);
         m_swath_record.SetOutputSide(m_swath_side);
         m_swath_record.ResetLine();
-        m_raw_survey_path = planner.GetRawPath();
+        m_raw_survey_path = VectorListToSegList(planner.GetRawPath());
     }
 }
 

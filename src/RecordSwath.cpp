@@ -8,18 +8,68 @@
 #include "RecordSwath.h"
 #include <cmath>
 #include <algorithm>
-#include "AngleUtils.h"
-#include "GeomUtils.h"
 
 #define DEBUG false
 #define TURN_THRESHOLD 20
+
+// Procedure: angle180
+//   Purpose: Convert angle to be strictly in the rang (-180, 180].
+
+static double angle180(double degval)
+{
+    while(degval > 180)
+        degval -= 360.0;
+    while(degval <= -180)
+        degval += 360.0;
+    return(degval);
+}
+
+//---------------------------------------------------------------
+// Procedure: radAngleWrap
+
+static double radAngleWrap(double radval)
+{
+    if((radval <= M_PI) && (radval >= -M_PI))
+        return(radval);
+
+    if(radval > M_PI)
+    return(radval - (2*M_PI));
+    else
+        return(radval + (2*M_PI));
+}
+
+//---------------------------------------------------------------
+// Procedure: headingToRadians
+// Converts true heading (clockwize from N) to
+// radians in a counterclockwize x(E) - y(N) coordinate system
+// .
+
+static double headingToRadians(double degval)
+{
+    return(radAngleWrap( (90.0-degval)*M_PI/180.0));
+}
+
+//---------------------------------------------------------------
+// Procedure: angle360
+//   Purpose: Convert angle to be strictly in the rang [0, 360).
+
+static double angle360(double degval)
+{
+    while(degval >= 360.0)
+        degval -= 360.0;
+    while(degval < 0.0)
+        degval += 360.0;
+    return(degval);
+}
+
+
 //---------------------------------------------------------
 // Constructor
 
-RecordSwath::RecordSwath(double interval) : m_min_allowable_swath(0),
+RecordSwath::RecordSwath(double interval) : m_min_allowable_swath(0),m_interval(interval),
                          m_has_records(false), m_acc_dist(0),
-                         m_interval(interval), m_output_side(BoatSide::Unknown),
-                         m_previous_record{0, 0, 0, 0, 0, 0}
+                         m_previous_record{0, 0, 0, 0, 0, 0},
+                         m_output_side(BoatSide::Unknown)
 {
     // Initialize the point records
     m_interval_swath[BoatSide::Port] = std::vector<double>();
@@ -41,7 +91,7 @@ bool RecordSwath::AddRecord(double swath_stbd, double swath_port, double loc_x,
 
     if (m_has_records)
     {
-        m_acc_dist += distPointToPoint(m_last_x, m_last_y, loc_x, loc_y);
+        m_acc_dist += hypot((m_last_x - loc_x), (m_last_y - loc_y));
         #if DEBUG
         std::cout << "Accumulated distance: " + std::to_string(m_acc_dist) + "\n";
         #endif
@@ -148,18 +198,17 @@ void RecordSwath::ResetLine()
     m_has_records = false;
 }
 
-XYSegList RecordSwath::SwathOuterPts(BoatSide side)
+EPointVec RecordSwath::SwathOuterPts(BoatSide side)
 {
-    XYSegList points;
-    std::list<SwathRecord>::iterator record;
-    for (record = m_min_record.begin(); record != m_min_record.end(); record++)
+    EPointVec points;
+    for (const auto &record : m_min_record)
     {
         // #if DEBUG
         // std::cout << "Getting swath outer point for " << record->loc_x
         //   << ", "  << record->loc_y << "\n";
         // #endif
-        XYPoint outer_pt = OuterPoint(*record, side);
-        points.add_vertex(outer_pt);
+        auto outer_pt = OuterPoint(record, side);
+        points.push_back(outer_pt);
     }
     return points;
 }
@@ -175,7 +224,7 @@ XYSegList RecordSwath::SwathOuterPts(BoatSide side)
 //   return points;
 // }
 
-XYPoint RecordSwath::OuterPoint(const SwathRecord &record, BoatSide side)
+EPoint RecordSwath::OuterPoint(const SwathRecord &record, BoatSide side)
 {
     // Could have SwathRecord be a class with functions to return representation
     // as a vector or point.
@@ -191,20 +240,23 @@ XYPoint RecordSwath::OuterPoint(const SwathRecord &record, BoatSide side)
         swath_width = record.swath_port;
         rotate_degs = -90;
     }
-    XYVector swath_vector(record.loc_x, record.loc_y, swath_width, record.heading);
-    swath_vector.augAngle(rotate_degs);
-    return XYPoint(swath_vector.xpos() + swath_vector.xdot(), swath_vector.ypos() + swath_vector.ydot());
+
+    auto orient_rad = headingToRadians(angle360(record.heading + rotate_degs));
+    auto x_dot = cos(orient_rad) * swath_width;
+    auto y_dot = cos(orient_rad) * swath_width;
+
+    return EPoint(record.loc_x + x_dot, record.loc_y + y_dot);
 }
 
-std::pair<XYPoint, XYPoint> RecordSwath::LastOuterPoints()
+std::pair<EPoint, EPoint> RecordSwath::LastOuterPoints()
 {
     if (m_has_records)
     {
-        XYPoint port_point = OuterPoint(m_previous_record, BoatSide::Port);
-        XYPoint stbd_point = OuterPoint(m_previous_record, BoatSide::Stbd);
+        auto port_point = OuterPoint(m_previous_record, BoatSide::Port);
+        auto stbd_point = OuterPoint(m_previous_record, BoatSide::Stbd);
         return std::make_pair(port_point, stbd_point);
     }
-    return std::make_pair(XYPoint(), XYPoint());
+    return std::make_pair(EPoint(), EPoint());
 }
 
 double RecordSwath::SwathWidth(BoatSide side, unsigned int index)
@@ -243,15 +295,14 @@ std::vector<double> RecordSwath::AllSwathWidths(BoatSide side)
     return widths;
 }
 
-XYPoint RecordSwath::SwathLocation(unsigned int index)
+EPoint RecordSwath::SwathLocation(unsigned int index)
 {
     if (m_min_record.size() > index)
     {
         std::list<SwathRecord>::iterator list_record = std::next(m_min_record.begin(), index);
-        return XYPoint(list_record->loc_x, list_record->loc_y);
+        return EPoint(list_record->loc_x, list_record->loc_y);
     }
     throw std::out_of_range("Swath index out of range.");
-    return XYPoint();
 }
 
 bool RecordSwath::ValidRecord()
