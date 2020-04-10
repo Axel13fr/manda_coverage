@@ -243,7 +243,7 @@ EPoint RecordSwath::OuterPoint(const SwathRecord &record, BoatSide side)
 
     auto orient_rad = headingToRadians(angle360(record.heading + rotate_degs));
     auto x_dot = cos(orient_rad) * swath_width;
-    auto y_dot = cos(orient_rad) * swath_width;
+    auto y_dot = sin(orient_rad) * swath_width;
 
     return EPoint(record.loc_x + x_dot, record.loc_y + y_dot);
 }
