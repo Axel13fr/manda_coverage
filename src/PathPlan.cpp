@@ -7,14 +7,16 @@
  */
 
 #include "PathPlan.h"
+
+#include <ros/console.h>
 #include <Eigen/Geometry>
 #include <cmath>
 #include <iterator>
 #include <iostream>
 
+static constexpr auto DEBUG = false;
 namespace bg = boost::geometry;
-
-#define DEBUG true
+static const Eigen::IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
 PathPlan::PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_region,
   double margin, double max_bend_angle, bool restrict_to_region) :
@@ -29,16 +31,12 @@ PathPlan::PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_reg
 }
 
 PathList PathPlan::GenerateNextPath() {
-  #if DEBUG
-  //MOOSTrace("\n======== Generating Next Path ========\n");
-  #endif
+  ROS_DEBUG_STREAM_COND(DEBUG,"\n======== Generating Next Path ========\n");
 
   std::vector<EPoint> edge_pts = m_last_line.SwathOuterPts(m_planning_side);
 
-  #if DEBUG
-  //MOOSTrace("Basis Points: %d\n", edge_pts.size());
-  //MOOSTrace(edge_pts.get_spec_pts(2) + "\n");
-  #endif
+  ROS_DEBUG_COND(DEBUG,"Basis Points: %d\n", edge_pts.size());
+//  ROS_DEBUG_STREAM_COND(DEBUG,edge_pts[2].get_spec_pts(2) + "\n");
 
   if (edge_pts.size() < 2)
     return PathList();
@@ -90,12 +88,10 @@ PathList PathPlan::GenerateNextPath() {
       Eigen::Vector2d swath_loc(edge_pts[i][X], edge_pts[i][Y]);
       m_next_path_pts.push_back(swath_loc + offset_vec);
 
-      #if DEBUG
-//       MOOSTrace("Swath Width: %0.2f  Offset X: %0.2f Offset Y: %0.2f Avg Vec: <%0.2f, %0.2f>\n",
+//       ROS_DEBUG_STREAM_COND(DEBUG,"Swath Width: %0.2f  Offset X: %0.2f Offset Y: %0.2f Avg Vec: <%0.2f, %0.2f>\n",
 //         swath_width, offset_vec.x(), offset_vec.y(), avg_vec.x(), avg_vec.y());
-//       MOOSTrace("Back Vec: <%0.2f, %0.2f>, Forward Vec: <%0.2f, %0.2f>\n",
+//       ROS_DEBUG_STREAM_COND(DEBUG,"Back Vec: <%0.2f, %0.2f>, Forward Vec: <%0.2f, %0.2f>\n",
 //         back_vec.x(), back_vec.y(), forward_vec.x(), forward_vec.y());
-      #endif
     }
     all_zero = all_zero && (swath_width == 0);
   }
@@ -104,9 +100,7 @@ PathList PathPlan::GenerateNextPath() {
   // reached).  This is done by the simulator or pSonarFilter, should eventually
   // move into this processing.
   if (all_zero) {
-    #if DEBUG
-    //MOOSTrace("Reached end of path by depth threshold\n");
-    #endif
+    ROS_DEBUG_STREAM_COND(DEBUG,"Reached end of path by depth threshold\n");
     return PathList();
   }
 
@@ -116,48 +110,37 @@ PathList PathPlan::GenerateNextPath() {
 
   // ---------- Intersections -----------
   size_t pre_len = m_next_path_pts.size();
-  #if DEBUG
-    //MOOSTrace("Eliminating path intersects itself.\n");
-  #endif
+  ROS_DEBUG_STREAM_COND(DEBUG,"Eliminating path intersects itself.\n");
   RemoveAll(RemoveIntersects, m_next_path_pts);
-  #if DEBUG
-    //MOOSTrace("Removed %d points.\n", pre_len - m_next_path_pts.size());
-    pre_len = m_next_path_pts.size();
-  #endif
+
+  ROS_DEBUG_COND(DEBUG,"Removed %d points.\n", pre_len - m_next_path_pts.size());
+  pre_len = m_next_path_pts.size();
 
   // ---------- Bends -----------
-  #if DEBUG
-  //MOOSTrace("Eliminating sharp bends.\n");
+  ROS_DEBUG_STREAM_COND(DEBUG,"Eliminating sharp bends.\n");
   //XYSegList pts = VectorListToSegList(m_next_path_pts);
-  //MOOSTrace(pts.get_spec_pts(2) + "\n");
-  #endif
+//  ROS_DEBUG_STREAM_COND(DEBUG,pts.get_spec_pts(2) + "\n");
 
 
   std::function<void(std::list<EPoint>&)> remove_func =
     std::bind(&PathPlan::RemoveBends, this, std::placeholders::_1);
   RemoveAll(remove_func, m_next_path_pts);
 
-  #if DEBUG
-  //MOOSTrace("Removed %d points.\n", pre_len - m_next_path_pts.size());
+  ROS_DEBUG_COND(DEBUG,"Removed %d points.\n", pre_len - m_next_path_pts.size());
   pre_len = m_next_path_pts.size();
-  #endif
 
   // ---------- Restrict to Region -----------
   // Would be good to check for segment intersecting with the border and use
   // these points instead
   std::pair<bool, bool> clipped = std::make_pair(false, false);
   if (m_restrict_asv_to_region) {
-    #if DEBUG
-    //MOOSTrace("Eliminating points outside op region.\n");
-    #endif
+    ROS_DEBUG_STREAM_COND(DEBUG,"Eliminating points outside op region.\n");
 
     //RestrictToRegion(m_next_path_pts);
     clipped = ClipToRegion(m_next_path_pts);
 
-    #if DEBUG
-    //MOOSTrace("Removed %d points.\n", pre_len - m_next_path_pts.size());
+    ROS_DEBUG_COND(DEBUG,"Removed %d points.\n", pre_len - m_next_path_pts.size());
     pre_len = m_next_path_pts.size();
-    #endif
 
     if (pre_len <= 1) {
       return m_next_path_pts;
@@ -167,19 +150,15 @@ PathList PathPlan::GenerateNextPath() {
   // ---------- Extend -----------
   // Idea: Maybe extend from the point to the nearest edge, not along the
   // vector of the last segment, or add swath width along the edge from last
-  #if DEBUG
-  //MOOSTrace("Extending ends of path to edge of region.\n");
-  #endif
+  ROS_DEBUG_STREAM_COND(DEBUG,"Extending ends of path to edge of region.\n");
 
   if (!clipped.first)
     ExtendToEdge(m_next_path_pts, true);
   if (!clipped.second)
     ExtendToEdge(m_next_path_pts, false);
 
-  #if DEBUG
-  //MOOSTrace("Removed %d points.\n", pre_len - m_next_path_pts.size());
+  ROS_DEBUG_COND(DEBUG,"Removed %d points.\n", pre_len - m_next_path_pts.size());
   pre_len = m_next_path_pts.size();
-  #endif
 
   return m_next_path_pts;
 }
@@ -196,10 +175,9 @@ void PathPlan::RemoveAll(std::function<void(std::list<Eigen::Vector2d>&)> proces
 }
 
 void PathPlan::RemoveIntersects(std::list<EPoint> &path_pts) {
+  ROS_DEBUG_STREAM_COND(DEBUG,"Running Remove Intersects\n");
+
   // Can't be an intersection between two segments (unless collinear)
-  #if DEBUG
-  std::cout << "Running Remove Intersects\n";
-  #endif
   if (path_pts.size() < 4)
     return;
 
@@ -216,10 +194,8 @@ void PathPlan::RemoveIntersects(std::list<EPoint> &path_pts) {
     // Segment to test
     Eigen::Vector2d this_seg_a = *path_iter;
     Eigen::Vector2d this_seg_b = *(++path_iter);
-    #if DEBUG
-    //std::cout << "First Seg Point 1: " << this_seg_a.transpose() << std::endl;
-    //std::cout << "First Seg Point 2: " << this_seg_b.transpose() << std::endl;
-    #endif
+    ROS_DEBUG_STREAM("First Seg Point 1: " << this_seg_a.transpose());
+    ROS_DEBUG_STREAM("First Seg Point 2: " << this_seg_b.transpose());
 
     // Test following segments in the list
     auto j = std::next(path_iter);
@@ -227,15 +203,11 @@ void PathPlan::RemoveIntersects(std::list<EPoint> &path_pts) {
     while(j != last_test_seg) {
       Eigen::Vector2d check_seg_a = *j;
       Eigen::Vector2d check_seg_b = *(++j);
-      #if DEBUG
-      //std::cout << "Check Seg Point 1: " << check_seg_a.transpose() << std::endl;
-      //std::cout << "Check Seg Point 2: " << check_seg_b.transpose() << std::endl;
-      #endif
+      ROS_DEBUG_STREAM("Check Seg Point 1: " << check_seg_a.transpose());
+      ROS_DEBUG_STREAM("Check Seg Point 2: " << check_seg_b.transpose());
       if (Intersect(this_seg_a, this_seg_b, check_seg_a, check_seg_b)) {
         next_non_intersect = j;
-        #if DEBUG
-        std::cout << "Found Intersect!\n";
-        #endif
+        ROS_DEBUG_STREAM("Found Intersect!\n");
       }
     }
     // If an intersection was found, remove the elements causing it.  Otherwise
@@ -252,9 +224,7 @@ void PathPlan::RemoveIntersects(std::list<EPoint> &path_pts) {
 void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
   // Maybe should process in both directions, remove pts common to both
   // Or take the method with less points removed
-  #if DEBUG
-  std::cout << "Running remove bends.\n";
-  #endif
+  ROS_DEBUG_STREAM("Running remove bends.\n");
 
   std::list<std::size_t> non_bend_idx = {0};
   // Need to be able to randomly access the path points
@@ -262,10 +232,7 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
   std::vector<EPoint> v_pts;
   v_pts.reserve(path_pts.size());
   std::copy(std::begin(path_pts), std::end(path_pts), std::back_inserter(v_pts));
-  #if DEBUG
-  std::cout << "Copied elements to vector, size = " << v_pts.size() << "\n";
-  #endif
-
+  ROS_DEBUG_STREAM("Copied elements to vector, size = " << v_pts.size() << "\n");
 
   SegIndex this_seg = {0, 1};
   SegIndex next_seg = {1, 2};
@@ -274,10 +241,9 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
   std::size_t last_index = v_pts.size() - 1;
 
   while (next_seg[1] < last_index) {
-    #if DEBUG
-    std::cout << "Looping through path: (" << this_seg[0] << "," << this_seg[1] << ")";
-    std::cout << " - (" << next_seg[0] << "," << next_seg[1] << ")\n";
-    #endif
+    ROS_DEBUG_STREAM("Looping through path: (" << this_seg[0] << "," << this_seg[1] << ")");
+    ROS_DEBUG_STREAM(" - (" << next_seg[0] << "," << next_seg[1] << ")\n");
+
     EPoint this_vec = v_pts[this_seg[1]] - v_pts[this_seg[0]];
     EPoint next_vec = v_pts[next_seg[1]] - v_pts[next_seg[0]];
 
@@ -328,25 +294,22 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
         // loops to know
         if (angle1 == 500 || angle2 == 500) {
           // Means we are checking a segment at the end of the line
-          #if DEBUG
-            //MOOSTrace("Encountered default angle state, this is not good.\n");
-          #endif
+            ROS_DEBUG_STREAM_COND(DEBUG,"Encountered default angle state, this is not good.\n");
         } else {
           if (pts_elim1 > pts_elim2 && pts_elim1 < (pts_elim2 * 2)
               && angle1 < angle2) {
-            #if DEBUG
-//             MOOSTrace("Bend Fudging - pts_elim1: %d, pts_elim2: %d\n\t"
-//                        "angle1: %.2f, angle2: %.2f\n", pts_elim1, pts_elim2,
-//                        angle1, angle2);
-            #endif
+
+             ROS_DEBUG_COND(DEBUG,"Bend Fudging - pts_elim1: %ld, pts_elim2: %ld\n\t"
+                        "angle1: %.2f, angle2: %.2f\n", pts_elim1, pts_elim2,
+                        angle1, angle2);
+
             pts_elim2 = pts_elim1 + 1;
           } else if (pts_elim2 >= pts_elim1 && pts_elim2 < (pts_elim1 * 2)
                      && angle2 < angle1) {
-            #if DEBUG
-//             MOOSTrace("Bend Fudging - pts_elim1: %d, pts_elim2: %d\n\t"
-//                       "angle1: %.2f, angle2: %.2f\n", pts_elim1, pts_elim2,
-//                       angle1, angle2);
-            #endif
+             ROS_DEBUG_COND(DEBUG,"Bend Fudging - pts_elim1: %ld, pts_elim2: %ld\n\t"
+                       "angle1: %.2f, angle2: %.2f\n", pts_elim1, pts_elim2,
+                       angle1, angle2);
+
             pts_elim1 = pts_elim2 + 1;
           }
         }
@@ -362,9 +325,8 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
       bool move_fwd = false;
       bool move_back = false;
       bool meth3_found_soln = true;
-      #if DEBUG
-      //std::cout << "Running Method 3\n";
-      #endif
+
+      ROS_DEBUG_STREAM_COND(DEBUG,"Running Method 3\n");
       while (fwd_angle > m_max_bend_angle || back_angle > m_max_bend_angle) {
         move_fwd = false;
         move_back = false;
@@ -376,10 +338,10 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
           test_back -= 1;
           move_back = true;
         }
-        #if DEBUG
-        //std::cout << "Test_Fwd: (" << test_fwd[0] << "," << test_fwd[1] << ")";
-        //std::cout << " - Test_Back (" << test_back[0] << "," << test_back[1] << ")\n";
-        #endif
+
+        ROS_DEBUG_STREAM("Test_Fwd: (" << test_fwd[0] << "," << test_fwd[1] << ")");
+        ROS_DEBUG_STREAM(" - Test_Back (" << test_back[0] << "," << test_back[1] << ")\n");
+
         if (!move_back && !move_fwd) {
           // Reached both ends
           meth3_found_soln = false;
@@ -427,9 +389,7 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
     // does this work now that the lists are passed by reference?
     path_pts.erase(std::next(path_pts.begin(), this_seg[0]));
     // might want to put this recursion path at the end
-    #if DEBUG
-    std::cout << "Recursing due to skip to end.\n";
-    #endif
+    ROS_DEBUG_STREAM("Recursing due to skip to end.\n");
     RemoveBends(path_pts);
     return;
   } else {
@@ -460,9 +420,7 @@ void PathPlan::RemoveBends(std::list<EPoint> &path_pts) {
   if (non_bend_idx.size() <= 3 && v_pts.size() > 5) {
     // Try again eliminating the first segment
     path_pts.erase(++path_pts.begin());
-    #if DEBUG
-    std::cout << "Recursing due to bend at beginning.\n";
-    #endif
+    ROS_DEBUG_STREAM("Recursing due to bend at beginning.\n");
     RemoveBends(path_pts);
   } else {
     SelectIndicies(path_pts, non_bend_idx);
@@ -606,7 +564,7 @@ std::pair<bool, bool> PathPlan::ClipToRegion(std::list<EPoint> &path_pts) {
     return std::make_pair(false, false);
   }
 
-  //std::cout << "Processing Line" << std::endl;
+  ROS_DEBUG_STREAM_COND(DEBUG,"Processing Line");
 
   bool begin_clipped{false}, end_clipped{false};
   auto outer_ring = m_op_region.outer();
@@ -653,7 +611,7 @@ std::pair<bool, bool> PathPlan::ClipToRegion(std::list<EPoint> &path_pts) {
       any_within = true;
 
     if (clip_mode == 1 && point_inside) {
-      //std::cout << "Clip Out to In, (" << point->x() << ", " << point->y() << ")" << std::endl;
+      ROS_DEBUG_STREAM("Clip Out to In, (" << point->x() << ", " << point->y() << ")");
       end_erase = point;
       insert_loc = path_pts.erase(start_erase, end_erase);
       auto intersect_pts = SegmentRingIntersect(last_pt, this_pt, outer_ring);
@@ -676,7 +634,7 @@ std::pair<bool, bool> PathPlan::ClipToRegion(std::list<EPoint> &path_pts) {
       point = std::next(insert_loc);
     } else if (clip_mode == 2 && !point_inside) {
       auto insert_out = point;
-      //std::cout << "Clip In to Out, " << count_in << "pts (" << point->x() << ", " << point->y() << ")" << std::endl;
+      ROS_DEBUG_STREAM("Clip In to Out, " << count_in << "pts (" << point->x() << ", " << point->y() << ")");
       if (count_in > 2) {
         start_erase = point;
         auto intersect_pts = SegmentRingIntersect(last_pt, this_pt, outer_ring);
@@ -760,9 +718,7 @@ void PathPlan::ExtendToEdge(std::list<EPoint> &path_points, bool begin) {
       path_points.push_back(intersection.second);
     }
   } else {
-    #if DEBUG
-    //MOOSTrace("Reached edge extension max.\n");
-    #endif
+    ROS_DEBUG_STREAM_COND(DEBUG,"Reached edge extension max.\n");
   }
 }
 
@@ -791,7 +747,7 @@ std::pair<double, EPoint> PathPlan::FindNearestIntersect(EPoint ray_vector,
     }
   }
 
-  std::cerr << "PathPlan::FindNearestIntersect intersect_dist.size(): " << intersect_dist.size() << std::endl;
+  ROS_WARN_STREAM("PathPlan::FindNearestIntersect intersect_dist.size(): " << intersect_dist.size());
   if(intersect_dist.empty())
       return std::make_pair(NAN,EPoint());
   

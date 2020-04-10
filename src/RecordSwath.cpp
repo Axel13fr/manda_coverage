@@ -6,11 +6,12 @@
 /************************************************************/
 
 #include "RecordSwath.h"
+#include <ros/console.h>
 #include <cmath>
 #include <algorithm>
 
-#define DEBUG false
-#define TURN_THRESHOLD 20
+static constexpr auto DEBUG = false;
+static constexpr auto TURN_THRESHOLD = 20;
 
 // Procedure: angle180
 //   Purpose: Convert angle to be strictly in the rang (-180, 180].
@@ -92,15 +93,12 @@ bool RecordSwath::AddRecord(double swath_stbd, double swath_port, double loc_x,
     if (m_has_records)
     {
         m_acc_dist += hypot((m_last_x - loc_x), (m_last_y - loc_y));
-        #if DEBUG
-        std::cout << "Accumulated distance: " + std::to_string(m_acc_dist) + "\n";
-        #endif
+
+        ROS_DEBUG_STREAM_COND(DEBUG, "Accumulated distance: " + std::to_string(m_acc_dist) + "\n");
 
         if (m_acc_dist >= m_interval)
         {
-            #if DEBUG
-            std::cout << "Running MinInterval()\n";
-            #endif
+            ROS_DEBUG_STREAM_COND(DEBUG, "Running MinInterval()\n");
             m_acc_dist = 0;
             MinInterval();
         } 
@@ -111,9 +109,7 @@ bool RecordSwath::AddRecord(double swath_stbd, double swath_port, double loc_x,
             if ((turn > TURN_THRESHOLD && m_output_side == BoatSide::Port)
                     || (turn < -TURN_THRESHOLD && m_output_side == BoatSide::Stbd))
             {
-                #if DEBUG
-                std::cout << "Adding Turn Based Point\n";
-                #endif
+                ROS_DEBUG_STREAM_COND(DEBUG, "Adding Turn Based Point\n");
                 m_min_record.push_back(record);
                 m_interval_record.clear();
                 m_interval_swath.clear();
@@ -157,9 +153,7 @@ void RecordSwath::MinInterval()
         // Add the first point if this is the first interval in the record
         if (m_min_record.size() == 0 && min_index != 0)
         {
-            #if DEBUG
-            std::cout << "Saving First record of line\n";
-            #endif
+            ROS_DEBUG_STREAM_COND(DEBUG, "Saving First record of line\n");
             m_min_record.push_back(m_interval_record[0]);
         }
         m_min_record.push_back(m_interval_record[min_index]);
@@ -177,10 +171,8 @@ bool RecordSwath::SaveLast()
         SwathRecord last_rec = m_interval_record.back();
         if (last_min.loc_x != last_rec.loc_x || last_min.loc_y != last_rec.loc_y)
         {
-            #if DEBUG
-            std::cout << "Saving last record of line, (" << last_rec.loc_x << ", "
-                << last_rec.loc_y << ")\n";
-            #endif
+            ROS_DEBUG_STREAM_COND(DEBUG, "Saving last record of line, (" << last_rec.loc_x << ", "
+                                                             << last_rec.loc_y << ")\n");
             m_min_record.push_back(last_rec);
         }
         return true;
@@ -204,7 +196,7 @@ EPointVec RecordSwath::SwathOuterPts(BoatSide side)
     for (const auto &record : m_min_record)
     {
         // #if DEBUG
-        // std::cout << "Getting swath outer point for " << record->loc_x
+        // ROS_DEBUG_STREAM_COND(DEBUG, "Getting swath outer point for " << record->loc_x
         //   << ", "  << record->loc_y << "\n";
         // #endif
         auto outer_pt = OuterPoint(record, side);
