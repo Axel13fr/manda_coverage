@@ -10,7 +10,7 @@
 #ifndef SurveyPath_PathPlan_HEADER
 #define SurveyPath_PathPlan_HEADER
 
-#include "RecordSwath.h"
+#include "SwathRecorder.h"
 #include <Eigen/Core>
 #include <list>
 #include <functional>

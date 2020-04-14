@@ -5,7 +5,7 @@
 /*    DATE: 23 Feb 2016                                     */
 /************************************************************/
 
-#include "RecordSwath.h"
+#include "lib_mandacov/SwathRecorder.h"
 #include <ros/console.h>
 #include <cmath>
 #include <algorithm>

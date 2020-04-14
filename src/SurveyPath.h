@@ -20,8 +20,8 @@
 #include <actionlib/client/simple_action_client.h>
 #include <path_follower/path_followerAction.h>
 #include <thread>
-#include "RecordSwath.h"
-#include "PathPlan.h"
+#include "lib_mandacov/SwathRecorder.h"
+#include "lib_mandacov/PathPlan.h"
 #include "project11_transformations/local_services.h"
 #include "GeomUtils.h"
 

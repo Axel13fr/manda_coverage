@@ -6,7 +6,7 @@
  * @copyright MIT License
  */
 
-#include "PathPlan.h"
+#include "lib_mandacov/PathPlan.h"
 
 #include <ros/console.h>
 #include <Eigen/Geometry>
