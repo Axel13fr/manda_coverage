@@ -73,7 +73,7 @@ private: // State variables
     bool m_turn_reached;
     bool m_recording;
     BPolygon m_op_region;
-    RecordSwath m_swath_record;
+    SwathRecorder m_swath_record;
     std::map<std::string, double> m_swath_info;
     std::string m_posted_path_str;
     XYSegList m_survey_path;

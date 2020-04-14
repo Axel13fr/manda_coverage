@@ -18,7 +18,7 @@ static constexpr auto DEBUG = false;
 namespace bg = boost::geometry;
 static const Eigen::IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
-PathPlan::PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_region,
+PathPlan::PathPlan(const SwathRecorder &last_swath, BoatSide side, BPolygon op_region,
   double margin, double max_bend_angle, bool restrict_to_region) :
   m_restrict_asv_to_region(restrict_to_region), m_max_bend_angle(max_bend_angle),
   m_margin(margin), m_op_region{op_region},m_last_line(last_swath), m_planning_side(side) {

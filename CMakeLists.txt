@@ -41,6 +41,7 @@ set(NODE_SOURCES
     src/PathPlan.cpp
     src/RecordSwath.cpp
     src/SurveyPath.cpp
+    src/SwathRecord.cpp
     src/SurveyPath_Info.cpp
     src/lib_mbutil/MBUtils.cpp
     src/lib_mbutil/ColorParse.cpp

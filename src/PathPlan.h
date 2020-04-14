@@ -42,7 +42,7 @@ using BRing = boost::geometry::model::ring<BPoint> ;
 class PathPlan
 {
   public:
-    PathPlan(const RecordSwath &last_swath, BoatSide side, BPolygon op_region,
+    PathPlan(const SwathRecorder &last_swath, BoatSide side, BPolygon op_region,
       double margin=0.2, double max_bend_angle=60, bool restrict_to_region = true);
     ~PathPlan() {}
     /**
@@ -221,7 +221,7 @@ class PathPlan
     BPolygon m_op_region;
 
     // State variables
-    RecordSwath m_last_line;
+    SwathRecorder m_last_line;
     BoatSide m_planning_side;
     std::list<Eigen::Vector2d> m_next_path_pts;
     PathList m_raw_path;
