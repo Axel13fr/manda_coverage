@@ -12,8 +12,6 @@
 #include "AngleUtils.h"
 #include "XYFormatUtilsSegl.h"
 #include "XYSegList.h"
-#include "lib_mandacov/SwathRecorder.h"
-#include "lib_mandacov/PathPlan.h"
 #include "SurveyPath.h"
 #include <boost/algorithm/string.hpp>
 
