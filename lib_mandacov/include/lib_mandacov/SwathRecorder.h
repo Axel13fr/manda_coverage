@@ -1,5 +1,5 @@
 /**
- * @file RecordSwath.h
+ * @file SwathRecord.h
  * @brief Records a swath history from a sonar on a moving vehicle.
  * @details Also gives the outer points at the edge of the swath along a track.
  * @author Damian Manda
@@ -7,8 +7,7 @@
  * @copyright MIT License
  */
 
-#ifndef SurveyPath_RecordSwath_HEADER
-#define SurveyPath_RecordSwath_HEADER
+#pragma once
 
 #include "SwathRecord.h"
 
@@ -70,7 +69,7 @@ public:
   * @param  index Position of the desired swath
   * @return       The swath width in meters
   */
-  double SwathWidth(BoatSide side, unsigned int index);
+  double SwathWidth(BoatSide side, size_t index);
 
   /**
    * Gets all the minimum swath widths on a side (recorded at the set side)
@@ -139,5 +138,3 @@ public:
   BoatSide m_output_side;
 
 };
-
-#endif

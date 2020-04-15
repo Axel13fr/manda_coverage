@@ -3,6 +3,7 @@ project(manda_coverage)
 
 add_compile_options(-std=c++11)
 
+find_package(Eigen3 REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   project11_transformations
@@ -14,8 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   geographic_visualization_msgs
   path_follower
 )
-
-find_path(EIGEN_INCLUDES Eigen/Core /usr/include/eigen3)
 
 add_action_files(DIRECTORY action FILES manda_coverage.action)
 generate_messages(DEPENDENCIES actionlib_msgs geographic_msgs)

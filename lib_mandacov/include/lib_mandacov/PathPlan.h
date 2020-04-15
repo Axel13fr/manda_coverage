@@ -6,9 +6,7 @@
  * @date 25 Feb 2016
  * @copyright MIT License
  */
-
-#ifndef SurveyPath_PathPlan_HEADER
-#define SurveyPath_PathPlan_HEADER
+#pragma once
 
 #include "SwathRecorder.h"
 #include <Eigen/Core>
@@ -226,5 +224,3 @@ class PathPlan
     std::list<Eigen::Vector2d> m_next_path_pts;
     PathList m_raw_path;
 };
-
-#endif

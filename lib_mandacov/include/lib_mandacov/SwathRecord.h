@@ -1,5 +1,12 @@
-#ifndef SWATHRECORD_H
-#define SWATHRECORD_H
+/**
+ * @file SwathRecord.h
+ * @brief Represends a record of a sonar measurement on a moving vehicle.
+ * @author Damian Manda
+ * @date 23 Feb 2016
+ * @copyright MIT License
+ */
+
+#pragma once
 
 #include <Eigen/Core>
 
@@ -36,4 +43,3 @@ public:
     EPoint outerPoint(BoatSide side) const;
 };
 
-#endif // SWATHRECORD_H

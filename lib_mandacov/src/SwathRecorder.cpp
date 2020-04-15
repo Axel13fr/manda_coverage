@@ -188,7 +188,7 @@ std::pair<EPoint, EPoint> SwathRecorder::LastOuterPoints()
     return std::make_pair(EPoint(), EPoint());
 }
 
-double SwathRecorder::SwathWidth(BoatSide side, unsigned int index)
+double SwathRecorder::SwathWidth(BoatSide side, size_t index)
 {
     if (m_min_record.size() > index)
     {

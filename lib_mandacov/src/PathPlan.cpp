@@ -35,7 +35,7 @@ PathList PathPlan::GenerateNextPath() {
 
   std::vector<EPoint> edge_pts = m_last_line.SwathOuterPts(m_planning_side);
 
-  ROS_DEBUG_COND(DEBUG,"Basis Points: %d\n", edge_pts.size());
+  ROS_DEBUG_COND(DEBUG,"Basis Points: %ld\n", edge_pts.size());
 //  ROS_DEBUG_STREAM_COND(DEBUG,edge_pts[2].get_spec_pts(2) + "\n");
 
   if (edge_pts.size() < 2)
