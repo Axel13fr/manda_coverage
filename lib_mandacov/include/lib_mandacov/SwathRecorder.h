@@ -11,7 +11,7 @@
 
 #include "SwathRecord.h"
 
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <list>
 #include <vector>
 #include <map>

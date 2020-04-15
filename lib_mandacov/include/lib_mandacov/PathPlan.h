@@ -9,7 +9,7 @@
 #pragma once
 
 #include "SwathRecorder.h"
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <list>
 #include <functional>
 #include <valarray>

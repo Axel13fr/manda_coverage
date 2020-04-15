@@ -9,7 +9,7 @@
 #include "lib_mandacov/PathPlan.h"
 
 #include <ros/console.h>
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Geometry>
 #include <cmath>
 #include <iterator>
 #include <iostream>
